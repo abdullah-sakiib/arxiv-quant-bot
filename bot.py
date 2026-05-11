@@ -1,44 +1,49 @@
-import arxiv
-import google.generativeai as genai
 import requests
+import google.generativeai as genai
 import os
-from datetime import datetime, timedelta, timezone
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 
 # ── Config ────────────────────────────────────────────────────────────────────
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 CHAT_ID        = os.environ["CHAT_ID"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 
-MAX_PAPERS = 8   # Max papers to send per day (adjust as you like)
+MAX_PAPERS = 8
 
-# ── arXiv categories you want ─────────────────────────────────────────────────
-# q-fin.*     = all quant finance
-# q-fin.TR    = trading and market microstructure
-# q-fin.CP    = computational finance
-# q-fin.RM    = risk management
-# q-fin.PM    = portfolio management
-# q-fin.ST    = statistical finance
-CATEGORY = "cat:q-fin.*"   # Change to e.g. "cat:q-fin.TR" to narrow down
+# arXiv RSS feeds by category — pick one or combine
+# q-fin    = all quant finance
+# q-fin.TR = trading & market microstructure
+# q-fin.CP = computational finance
+# q-fin.RM = risk management
+# q-fin.ST = statistical finance
+# q-fin.PM = portfolio management
+RSS_URL = "https://rss.arxiv.org/rss/q-fin"
 
 
-# ── Fetch papers from arXiv ───────────────────────────────────────────────────
+# ── Fetch today's papers via RSS ──────────────────────────────────────────────
 def fetch_papers():
-    client = arxiv.Client()
-    search = arxiv.Search(
-        query=CATEGORY,
-        max_results=40,
-        sort_by=arxiv.SortCriterion.SubmittedDate,
-        sort_order=arxiv.SortOrder.Descending,
-    )
+    headers = {"User-Agent": "arxiv-digest-bot/1.0 (personal research tool)"}
+    response = requests.get(RSS_URL, headers=headers, timeout=30)
+    response.raise_for_status()
 
-    yesterday = datetime.now(timezone.utc) - timedelta(days=3)
+    root = ET.fromstring(response.content)
+    ns = {"dc": "http://purl.org/dc/elements/1.1/"}
+
     papers = []
+    items = root.findall(".//item")
 
-    for result in client.results(search):
-        if result.published >= yesterday:
-            papers.append(result)
-        if len(papers) >= MAX_PAPERS:
-            break
+    for item in items[:MAX_PAPERS]:
+        title = item.findtext("title", "").strip()
+        link  = item.findtext("link", "").strip()
+        desc  = item.findtext("description", "").strip()
+
+        # Clean HTML tags from description
+        import re
+        desc = re.sub(r"<[^>]+>", "", desc).strip()
+
+        if title and desc:
+            papers.append({"title": title, "link": link, "abstract": desc})
 
     return papers
 
@@ -51,15 +56,14 @@ def summarize(paper):
     prompt = f"""You are a quant finance researcher. Summarize this paper for a practitioner.
 Be concise and focus on practical relevance.
 
-Title: {paper.title}
-Abstract: {paper.summary}
+Title: {paper['title']}
+Abstract: {paper['abstract']}
 
 Reply in exactly this format (no extra text):
-🎯 *What it does:* (5 sentences)
-📐 *Method:* (5-10 sentence on the technique used)
+🎯 *What it does:* (1-2 sentences)
+📐 *Method:* (1 sentence on the technique used)
 💡 *Quant relevance:* (1 sentence — trading, risk, forecasting, etc.)
 """
-
     response = model.generate_content(prompt)
     return response.text.strip()
 
@@ -73,10 +77,9 @@ def send_telegram(text):
         "parse_mode": "Markdown",
         "disable_web_page_preview": True
     }
-    response = requests.post(url, json=payload)
-
-    # If Markdown fails (special chars in title), retry as plain text
-    if not response.ok:
+    r = requests.post(url, json=payload)
+    if not r.ok:
+        # Fallback: strip markdown if special chars cause issues
         payload["parse_mode"] = "HTML"
         payload["text"] = text.replace("*", "").replace("_", "")
         requests.post(url, json=payload)
@@ -105,13 +108,12 @@ def main():
         except Exception as e:
             summary = f"_(Could not summarize: {e})_"
 
-        # Truncate long titles
-        title = paper.title if len(paper.title) < 100 else paper.title[:97] + "..."
+        title = paper['title'] if len(paper['title']) < 100 else paper['title'][:97] + "..."
 
         msg = (
             f"*{i}. {title}*\n\n"
             f"{summary}\n\n"
-            f"🔗 [Read paper]({paper.entry_id})"
+            f"🔗 [Read paper]({paper['link']})"
         )
         send_telegram(msg)
 
