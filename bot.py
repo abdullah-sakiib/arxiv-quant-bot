@@ -10,7 +10,7 @@ TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 CHAT_ID        = os.environ["CHAT_ID"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 
-MAX_PAPERS = 8
+MAX_PAPERS = 30
 
 # arXiv RSS feeds by category — pick one or combine
 # q-fin    = all quant finance
