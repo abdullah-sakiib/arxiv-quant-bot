@@ -50,25 +50,29 @@ def fetch_papers():
 
 
 # ── Summarize with Gemini ─────────────────────────────────────────────────────
-def summarize(paper):
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+from groq import Groq  # add at top
 
-    # Truncate abstract to save tokens
+def summarize(paper):
+    client = Groq(api_key=os.environ["GROQ_API_KEY"])
     abstract = paper['abstract'][:800]
 
-    prompt = f"""Summarize for a quant finance practitioner in 3 lines:
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{
+            "role": "user",
+            "content": f"""Summarize for a quant finance practitioner in 3 lines:
 Title: {paper['title']}
 Abstract: {abstract}
 
-Format:
+Format exactly:
 🎯 What it does: (1 sentence)
 📐 Method: (1 sentence)
 💡 Quant use: (1 sentence)"""
-
-    response = model.generate_content(prompt)
-    return response.text.strip()
-
+        }],
+        max_tokens=200,
+        temperature=0.3
+    )
+    return response.choices[0].message.content.strip()
 
 # ── Send message to Telegram ──────────────────────────────────────────────────
 def send_telegram(text):
