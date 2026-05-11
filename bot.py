@@ -31,7 +31,7 @@ def fetch_papers():
         sort_order=arxiv.SortOrder.Descending,
     )
 
-    yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+    yesterday = datetime.now(timezone.utc) - timedelta(days=3)
     papers = []
 
     for result in client.results(search):
@@ -55,8 +55,8 @@ Title: {paper.title}
 Abstract: {paper.summary}
 
 Reply in exactly this format (no extra text):
-🎯 *What it does:* (1-2 sentences)
-📐 *Method:* (1 sentence on the technique used)
+🎯 *What it does:* (5 sentences)
+📐 *Method:* (5-10 sentence on the technique used)
 💡 *Quant relevance:* (1 sentence — trading, risk, forecasting, etc.)
 """
 
