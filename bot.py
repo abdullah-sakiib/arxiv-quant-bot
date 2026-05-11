@@ -1,3 +1,4 @@
+import time
 import requests
 import google.generativeai as genai
 import os
@@ -53,17 +54,18 @@ def summarize(paper):
     genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel("gemini-2.0-flash")
 
-    prompt = f"""You are a quant finance researcher. Summarize this paper for a practitioner.
-Be concise and focus on practical relevance.
+    # Truncate abstract to save tokens
+    abstract = paper['abstract'][:800]
 
+    prompt = f"""Summarize for a quant finance practitioner in 3 lines:
 Title: {paper['title']}
-Abstract: {paper['abstract']}
+Abstract: {abstract}
 
-Reply in exactly this format (no extra text):
-🎯 *What it does:* (1-2 sentences)
-📐 *Method:* (1 sentence on the technique used)
-💡 *Quant relevance:* (1 sentence — trading, risk, forecasting, etc.)
-"""
+Format:
+🎯 What it does: (1 sentence)
+📐 Method: (1 sentence)
+💡 Quant use: (1 sentence)"""
+
     response = model.generate_content(prompt)
     return response.text.strip()
 
@@ -106,7 +108,7 @@ def main():
         try:
             summary = summarize(paper)
         except Exception as e:
-            summary = f"_(Could not summarize: {e})_"
+            summary = "_(Summary unavailable)_"
 
         title = paper['title'] if len(paper['title']) < 100 else paper['title'][:97] + "..."
 
@@ -116,6 +118,9 @@ def main():
             f"🔗 [Read paper]({paper['link']})"
         )
         send_telegram(msg)
+
+        # Wait 6 seconds between Gemini calls (max 10 req/min on free tier)
+        time.sleep(6)
 
     send_telegram("✅ That's all for today! See you tomorrow.")
 
