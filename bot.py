@@ -108,7 +108,7 @@ def main():
         try:
             summary = summarize(paper)
         except Exception as e:
-            summary = "_(Summary unavailable)_"
+            summary = f"_(Error: {str(e)[:200]})_"
 
         title = paper['title'] if len(paper['title']) < 100 else paper['title'][:97] + "..."
 
