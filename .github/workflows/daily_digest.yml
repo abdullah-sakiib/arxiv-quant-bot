@@ -1,38 +1,20 @@
 name: Daily arXiv Quant Finance Digest
-
 on:
   schedule:
-    # Runs every day at 8:00 AM UTC
-    # To change time: use cron format  "minute hour * * *"
-    # Examples:
-    #   "0 6 * * *"  = 6:00 AM UTC  (12:00 PM Bangladesh time)
-    #   "0 8 * * *"  = 8:00 AM UTC  (2:00 PM Bangladesh time)
-    #   "0 3 * * *"  = 3:00 AM UTC  (9:00 AM Bangladesh time)
     - cron: '0 3 * * *'
-
-  # This lets you run the bot MANUALLY from GitHub's website (for testing)
   workflow_dispatch:
-
 jobs:
   send-digest:
-    runs-on: ubuntu-latest   # GitHub gives you a free Linux machine
-
+    runs-on: ubuntu-latest
     steps:
-      # Step 1: Download your code from GitHub
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # Step 2: Install Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      # Step 3: Install your Python libraries
       - name: Install dependencies
         run: pip install -r requirements.txt
-
-      # Step 4: Run the bot (secrets are injected here safely)
       - name: Run bot
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
